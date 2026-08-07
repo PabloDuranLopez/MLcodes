@@ -1,0 +1,30 @@
+class LogisticRegresion():
+    def __init__(self, epoch=500,lr=0.05, lam=1):
+        self.epoch=epoch
+        self.lr=lr
+        self.lam=lam
+    
+    def sigmoid(self, z):
+        return 1/(1+np.exp(-z))
+
+    def fit(self, x,y):
+        m,n=x.shape
+        w=np.random.rand(n)
+        b=np.random.rand(1)
+        for epoch in range(self.epoch):
+            z=y*(x@w + b)
+            s=self.sigmoid(-z)
+            gradw=-(x.T@(y*s)) + 2*self.lam*w
+            gradb=-np.sum(y*s)
+            w-=self.lr*gradw
+            b-=self.lr*gradb
+        self.w=w
+        self.b=b 
+
+    def predict_proba(self,x):
+        z=(x@self.w + self.b)
+        return self.sigmoid(z)
+
+    def predict(self,x,threshold):
+        probs=self.predict_proba(x)
+        return np.where(probs>=threshold, 1,-1)
