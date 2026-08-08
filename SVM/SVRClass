@@ -1,5 +1,5 @@
 import numpy as np
-
+from scipy.optimize import minimize
 class SVMRegression:
     def __init__(self,error=1,C=None,kernel='linear',gamma=1, tol=1e-5):
         self.C=C
