@@ -1,0 +1,75 @@
+import numpy as np
+from scipy.optimize import minimize
+from sklearn.base import BaseEstimator, RegressorMixin
+
+
+class SVMRegression(BaseEstimator, RegressorMixin):
+    def __init__(self,error=1,C=None,kernel='linear',gamma=1, tol=1e-5):
+        self.C=C
+        self.error=error
+        self.kernel=kernel
+        self.gamma=gamma
+        self.tol=tol
+
+    def Kernel(self,x1,x2):
+        if self.kernel=='linear':
+            return x1@x2.T
+        elif self.kernel=='RBF':
+            diff=(x1[:,None]-x2[None,:])**2
+            dist=np.sum(diff,axis=2)
+            return np.exp(-self.gamma*dist)
+        else:
+            raise ValueError("Kernel no permitido")
+        
+    def fit(self,x,y):
+        k=self.Kernel(x,x)
+        alphas=np.zeros(2*len(y))
+
+        def opt_fun(alphas):
+            alphas1=alphas[:len(y)]
+            alphas2=alphas[len(y):] 
+            diff=alphas1-alphas2
+            suma=alphas1+alphas2
+            return 0.5*np.sum(diff@k@diff)+self.error*np.sum(suma)-np.sum(diff*y)
+        
+        cons={"type":'eq',"fun":lambda alphas:np.sum(alphas[:len(y)]-alphas[len(y):])}
+
+        if self.C is None:
+            bounds=[(0,None)]*(2*len(y))
+            opt=minimize(opt_fun,alphas,bounds=bounds,constraints=cons)
+            a=opt.x
+            sv=(a>self.tol) 
+
+        else:
+            bounds=[(0,self.C)]*(2*len(y))
+            opt=minimize(opt_fun,alphas,bounds=bounds, constraints=cons)
+            a=opt.x
+            sv=(a>self.tol) & (a<self.C-self.tol)
+        sv1=sv[:len(y)]
+        sv2=sv[len(y):]
+        alp=a[:len(y)]
+        alp_star=a[len(y):]
+        alp_sv=alp[sv1]
+        alp_star_sv=alp_star[sv2]
+
+        beta=alp-alp_star 
+        c=[] 
+        for i in range(len(y)):
+            if sv1[i]==True:
+                b_i=(y[i]-self.error -np.sum(beta*k[:,i]))
+                c.append(b_i)
+            elif sv2[i]==True:
+                b_i=(y[i]+self.error -np.sum(beta*k[:,i]))
+                c.append(b_i)
+        b=np.mean(c)
+        self.b=b
+        self.sv1=sv1
+        self.sv2=sv2
+        self.beta=beta
+        self.x=x
+        return self
+
+    def predict(self,X):
+        k=self.Kernel(X,self.x)
+        y_pred=self.b + k@self.beta
+        return y_pred
